@@ -1,0 +1,5 @@
+Anti-Spoofing Detection Log
+Started: 2026-03-08 12:13:02.318973
+Model: best.pt
+==================================================
+

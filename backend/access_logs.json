@@ -1,0 +1,202 @@
+[
+  {
+    "full_time": "2025-12-23 15:03:17",
+    "time": "15:03:17",
+    "name": "Nguyen Thanh Trung",
+    "dept": "1",
+    "camera": "CAM 1",
+    "score": "66%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-23 14:57:14",
+    "time": "14:57:14",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "0%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766476634_0.jpg"
+  },
+  {
+    "full_time": "2025-12-23 14:55:58",
+    "time": "14:55:58",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "0%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766476558_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 12:00:44",
+    "time": "12:00:44",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "54%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 12:00:26",
+    "time": "12:00:26",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "73%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 12:00:19",
+    "time": "12:00:19",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "65%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 12:00:14",
+    "time": "12:00:14",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "62%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 11:59:25",
+    "time": "11:59:25",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "59%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 11:59:16",
+    "time": "11:59:16",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "14%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766206756_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 11:58:42",
+    "time": "11:58:42",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "67%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 11:58:29",
+    "time": "11:58:29",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "8%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766206709_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 11:58:15",
+    "time": "11:58:15",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "10%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766206695_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 11:58:12",
+    "time": "11:58:12",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "65%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 11:57:31",
+    "time": "11:57:31",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "16%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766206651_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 11:57:08",
+    "time": "11:57:08",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "11%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766206628_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 11:57:08",
+    "time": "11:57:08",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "64%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 11:56:53",
+    "time": "11:56:53",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "71%",
+    "status": "authorized",
+    "image": ""
+  },
+  {
+    "full_time": "2025-12-20 11:55:38",
+    "time": "11:55:38",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "9%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766206538_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 11:55:34",
+    "time": "11:55:34",
+    "name": "Unknown",
+    "dept": "Cảnh báo",
+    "camera": "CAM 1",
+    "score": "8%",
+    "status": "warning",
+    "image": "/static/strangers/stranger_1766206534_0.jpg"
+  },
+  {
+    "full_time": "2025-12-20 11:55:21",
+    "time": "11:55:21",
+    "name": "Nguyễn Thành Trung",
+    "dept": "123",
+    "camera": "CAM 1",
+    "score": "74%",
+    "status": "authorized",
+    "image": ""
+  }
+]

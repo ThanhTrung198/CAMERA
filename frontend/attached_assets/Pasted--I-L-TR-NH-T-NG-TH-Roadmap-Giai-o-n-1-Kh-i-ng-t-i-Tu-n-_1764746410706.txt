@@ -1,0 +1,186 @@
+🧭 I. LỘ TRÌNH TỔNG THỂ (Roadmap)
+Giai đoạn 1 — Khởi động đề tài (Tuần 1–2)
+
+Mục tiêu: hiểu bài toán + thu thập tài liệu + tìm công nghệ.
+
+✔ Công việc:
+
+Nghiên cứu các hệ thống trên thị trường (SmartFace, SAFR, CIVAMS, Face++…)
+
+Tìm hiểu các mô hình phù hợp:
+
+Face Detection → YOLOv8 / RetinaFace
+
+Face Recognition → ArcFace / InsightFace
+
+Anti-spoofing → SilentFace / FaceLiveness
+
+Xác định yêu cầu hệ thống:
+
+Multi-camera?
+
+Giám sát người lạ?
+
+Có blacklist?
+
+Có cảnh báo thời gian thực?
+
+Thu thập dataset (ảnh nhân viên, ảnh người lạ, ảnh spoof).
+
+Chọn công nghệ:
+
+Backend: Python FastAPI
+
+Frontend: ReactJS + Tailwind
+
+AI: InsightFace + ONNX Runtime
+
+Database: MySQL hoặc PostgreSQL
+
+Streaming: WebSocket + RTSP
+
+✔ Kết quả bàn giao:
+
+Đề cương chi tiết
+
+Sơ đồ mô tả bài toán
+
+Danh sách công nghệ chọn
+
+Giai đoạn 2 — Thiết kế UI + Kiến trúc hệ thống (Tuần 3–4)
+
+Mục tiêu: hoàn thiện giao diện và kiến trúc tổng thể.
+
+✔ Công việc:
+
+Thiết kế UI 4 màn hình chính:
+
+Dashboard realtime
+
+Quản lý người dùng
+
+Quản lý logs
+
+Quản lý cấu hình
+
+Thiết kế giao diện Unknown Person + Blacklist
+
+Vẽ ERD Database:
+
+Users
+
+FaceEmbeddings
+
+AccessLogs
+
+UnknownLogs
+
+Cameras
+
+Blacklist
+
+Thiết kế kiến trúc hệ thống:
+
+Streaming server
+
+AI inference server
+
+API server
+
+Notification module
+
+Interaction với cửa/barie
+
+✔ Kết quả bàn giao:
+
+UI mockup / Figma-like
+
+ERD database
+
+Kiến trúc hệ thống (UML + sequence diagram)
+
+Giai đoạn 3 — Mô hình AI (Tuần 5–7)
+
+Mục tiêu: hoàn thiện pipeline nhận diện realtime.
+
+✔ Công việc:
+
+Face Detection (YOLO/RetinaFace)
+
+Training/finetune (nếu cần)
+
+Benchmark FPS trên camera
+
+Face Recognition (ArcFace / InsightFace)
+
+Tạo embedding
+
+Thiết kế DB vector
+
+Xác định threshold cho Unknown
+
+Anti-spoofing
+
+Model phát hiện: ảnh chụp / video / màn hình
+
+Ngưỡng phát hiện spoof
+
+Evaluation
+
+Độ chính xác (Accuracy, F1-score)
+
+Tốc độ xử lý (FPS)
+
+Test nhiều điều kiện ánh sáng
+
+✔ Kết quả bàn giao:
+
+Pretrained model + ONNX
+
+Pipeline AI hoàn chỉnh
+
+Báo cáo kết quả đánh giá
+
+Giai đoạn 4 — Xây dựng phần mềm (Tuần 8–12)
+
+Mục tiêu: hoàn thiện hệ thống chạy realtime.
+
+Tuần 8–9 — Backend + AI Server
+
+✔ FastAPI backend:
+
+API nhận diện mặt
+
+API tạo embedding
+
+API quản lý người dùng
+
+API quản lý logs
+
+Module xử lý Unknown
+
+Module blacklist
+
+Module cảnh báo (Telegram/email)
+
+✔ Inference server:
+
+Load ONNX model
+
+Xử lý realtime 25–30 FPS
+
+Multi-camera queue
+
+Tuần 10–11 — Frontend React UI
+
+✔ Dashboard realtime:
+
+Stream camera
+
+Bounding box overlay
+
+Unknown popup
+
+Blacklist alert
+
+Snapshot preview
