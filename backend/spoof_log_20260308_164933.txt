@@ -1,0 +1,26 @@
+Anti-Spoofing Detection Log
+Started: 2026-03-08 16:49:33.995345
+Model: best.pt
+==================================================
+
+[20260308_164937] FAKE cam0 | conf=100%
+[20260308_164940] FAKE cam0 | conf=100%
+[20260308_164943] FAKE cam0 | conf=100%
+[20260308_164946] FAKE cam0 | conf=71%
+[20260308_164950] FAKE cam0 | conf=100%
+[20260308_164953] FAKE cam0 | conf=100%
+[20260308_164956] FAKE cam0 | conf=100%
+[20260308_165000] FAKE cam0 | conf=100%
+[20260308_165003] FAKE cam0 | conf=100%
+[20260308_165007] FAKE cam0 | conf=63%
+[20260308_165010] FAKE cam0 | conf=100%
+[20260308_165014] FAKE cam0 | conf=100%
+[20260308_165017] FAKE cam0 | conf=100%
+[20260308_165021] FAKE cam0 | conf=100%
+[20260308_165025] FAKE cam0 | conf=100%
+[20260308_165028] FAKE cam0 | conf=100%
+[20260308_165031] FAKE cam0 | conf=100%
+[20260308_165035] FAKE cam0 | conf=100%
+[20260308_165038] FAKE cam0 | conf=100%
+[20260308_165041] FAKE cam0 | conf=100%
+[20260308_165044] FAKE cam0 | conf=100%

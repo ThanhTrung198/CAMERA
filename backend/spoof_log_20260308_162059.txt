@@ -1,0 +1,7 @@
+Anti-Spoofing Detection Log
+Started: 2026-03-08 16:20:59.911700
+Model: best.pt
+==================================================
+
+[20260308_162138] FAKE cam0 | conf=62%
+[20260308_162142] FAKE cam0 | conf=81%
