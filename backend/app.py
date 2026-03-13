@@ -1182,7 +1182,7 @@ def add_log(name, cam_id, score, face_img=None):
         if "GIA_MAO" in name or "Nguoi_La" in name or "Unknown" in name:
             img_blob = None
             if face_img is not None and face_img.size > 0:
-                success, encoded_img = cv2.imencode('.jpg', face_img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                success, encoded_img = cv2.imencode('.jpg', face_img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
                 if success:
                     img_blob = encoded_img.tobytes()
             cursor.execute(
@@ -2051,7 +2051,7 @@ def ai_worker_thread():
                                     try:
                                         telegram_notifier.send_spoof_alert(frame, face_bbox=fbbox,
                                                                            confidence=spoof_conf, cam_id=cid)
-                                        add_log(name, cid, spoof_conf, crop)
+                                        add_log(name, cid, spoof_conf, frame)
                                         alert_sent_ok = True
                                     except Exception as tg_e:
                                         print(f"[AI] Telegram spoof error: {tg_e}")
@@ -2061,7 +2061,7 @@ def ai_worker_thread():
                                         stranger_label = f"Nguoi_La_{stranger_id}"
                                         telegram_notifier.send_stranger_alert(stranger_label, frame,
                                                                               face_bbox=fbbox, cam_id=cid)
-                                        add_log(stranger_label, cid, score, crop)
+                                        add_log(stranger_label, cid, score, frame)
                                         alert_sent_ok = True
                                     except Exception as tg_e:
                                         print(f"[AI] Telegram stranger error: {tg_e}")
