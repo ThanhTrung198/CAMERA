@@ -97,6 +97,6 @@ USERS = {
 # CONFIRMATION BUFFER — chống false positive
 # ==============================================================================
 CONFIRMATION_TIME_STRANGER = 0      # Giây chờ xác nhận người lạ
-CONFIRMATION_TIME_SPOOF = 0         # ★ Tăng từ 3s → 5s: chống false positive, cần nhiều frame hơn  
+CONFIRMATION_TIME_SPOOF = 2         # ★ 2 giây: cần phát hiện FAKE liên tục 2s để confirm GIA MAO
 CONFIRMATION_DISAPPEAR_TIMEOUT = 1.5  # Giây mất mặt thì reset buffer
-SPOOF_MIN_FACE_SIZE = 60
+SPOOF_MIN_FACE_SIZE = 70

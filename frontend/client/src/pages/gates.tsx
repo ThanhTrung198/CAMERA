@@ -105,7 +105,7 @@ function CameraImage({ door }: { door: Door }) {
 /* =======================
    MAIN PAGE
 ======================= */
-export default function DoorMonitor() {
+export default function Gates() {
   const [doors, setDoors] = useState<Door[]>(initialDoors);
 
   const toggleDoor = (id: string) => {

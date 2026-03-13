@@ -1,0 +1,28 @@
+Anti-Spoofing Log v3.0
+Started: 2026-03-10 13:18:23.603496
+Model: best.pt + 4-Layer
+==================================================
+
+[20260310_131902] FAKE cam0 | conf=84%
+[20260310_131905] FAKE cam0 | conf=86%
+[20260310_131909] FAKE cam0 | conf=86%
+[20260310_131913] FAKE cam0 | conf=100%
+[20260310_131916] FAKE cam0 | conf=85%
+[20260310_132101] FAKE cam0 | conf=100%
+[20260310_132105] FAKE cam0 | conf=100%
+[20260310_132109] FAKE cam0 | conf=100%
+[20260310_132113] FAKE cam0 | conf=100%
+[20260310_132118] FAKE cam0 | conf=100%
+[20260310_132239] FAKE cam0 | conf=100%
+[20260310_132242] FAKE cam0 | conf=100%
+[20260310_132448] FAKE cam0 | conf=100%
+[20260310_132452] FAKE cam0 | conf=92%
+[20260310_132455] FAKE cam0 | conf=100%
+[20260310_132459] FAKE cam0 | conf=100%
+[20260310_132603] FAKE cam0 | conf=85%
+[20260310_132606] FAKE cam0 | conf=85%
+[20260310_132609] FAKE cam0 | conf=93%
+[20260310_132659] FAKE cam0 | conf=92%
+[20260310_132703] FAKE cam0 | conf=84%
+[20260310_132738] FAKE cam0 | conf=100%
+[20260310_132742] FAKE cam0 | conf=100%

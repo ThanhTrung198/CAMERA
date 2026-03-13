@@ -11,8 +11,14 @@ import {
   Menu,
   Search,
   ShieldCheck,
-  Target,
+  Camera,
   Brain,
+  UserCheck,
+  AlertTriangle,
+  GraduationCap,
+  MapPin,
+  History,
+  Contact,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,39 +41,82 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
-    { icon: Users, label: "Nhân sự", href: "/employees" },
-    { icon: ClipboardList, label: "Chấm công", href: "/attendance" },
-    { icon: Target, label: "Tracking & Zone", href: "/tracking" },
-    { icon: DoorOpen, label: "Giám sát cửa ra vào", href: "/door" },
-    { icon: ShieldCheck, label: "An ninh & Cảnh báo", href: "/security" },
-    { icon: DoorOpen, label: "Phòng máy chủ", href: "/doors" },
-    { icon: BarChart3, label: "Báo cáo", href: "/reports" },
-    { icon: Settings, label: "Cài đặt", href: "/settings" },
-    { icon: Brain, label: "Dữ liệu Training", href: "/training-data" },
+    {
+      icon: GraduationCap,
+      label: "Quản lý học sinh",
+      href: "/students",
+    },
+
+    {
+      icon: UserCheck,
+      label: "Điểm danh ra vào",
+      href: "/attendance",
+    },
+
+    {
+      icon: DoorOpen,
+      label: "Cổng trường & Cửa ra vào",
+      href: "/gates",
+    },
+    {
+      icon: MapPin,
+      label: "Theo dõi khu vực",
+      href: "/tracking",
+    },
+
+    {
+      icon: ShieldCheck,
+      label: "An ninh",
+      href: "/security",
+    },
+
+    {
+      icon: BarChart3,
+      label: "Báo cáo & Thống kê",
+      href: "/reports",
+    },
+
+    {
+      icon: Users,
+      label: "Nhân viên trường",
+      href: "/staff",
+    },
+    { icon: Settings, label: "Cài đặt hệ thống", href: "/settings" },
   ];
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col bg-sidebar border-r border-sidebar-border text-sidebar-foreground">
-      <div className="p-6 flex items-center gap-2 border-b border-sidebar-border/50">
-        <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
-          <ShieldCheck className="h-5 w-5 text-primary-foreground" />
+      {/* Header - Logo & Tên trường */}
+      <div className="p-5 flex flex-col items-center justify-center gap-3 border-b border-sidebar-border/50 bg-primary/5">
+        <div className="h-16 w-3/4 shrink-0 overflow-hidden shadow-sm rounded-lg border-2 border-white dark:border-slate-800 bg-white flex items-center justify-center relative group">
+          <img
+            src="https://navigates.vn/wp-content/uploads/2023/03/van-hien.jpg"
+            alt="VHU Logo"
+            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 p-1"
+          />
         </div>
-        <div>
-          <h1 className="font-bold text-lg tracking-tight">SecureFacility</h1>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-            OS v2.4.0
-          </p>
+        <div className="text-center">
+          <h1 className="font-black text-[14px] leading-tight tracking-tight uppercase text-primary">
+            Trường Đại Học
+            <br />
+            Văn Hiến
+          </h1>
+
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
+      {/* Navigation */}
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto scrollbar-thin">
+        <p className="text-[10px] font-bold uppercase text-muted-foreground/70 px-3 pt-2 pb-1 tracking-widest">
+          Quản lý chính
+        </p>
+        {navItems.slice(0, 4).map((item) => {
           const isActive = location === item.href;
           return (
             <Link key={item.href} href={item.href}>
               <div
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer group",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer group",
                   isActive
                     ? "bg-primary/10 text-primary border-l-2 border-primary pl-[10px]"
                     : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-1"
@@ -75,25 +124,98 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               >
                 <item.icon
                   className={cn(
-                    "h-4 w-4",
+                    "h-4 w-4 shrink-0",
                     isActive
                       ? "text-primary"
                       : "text-muted-foreground group-hover:text-foreground"
                   )}
                 />
-                {item.label}
+                <span className="truncate">{item.label}</span>
+              </div>
+            </Link>
+          );
+        })}
+
+        <p className="text-[10px] font-bold uppercase text-muted-foreground/70 px-3 pt-4 pb-1 tracking-widest">
+          Giám sát & An ninh
+        </p>
+        {navItems.slice(4, 7).map((item) => {
+          const isActive = location === item.href;
+          return (
+            <Link key={item.href} href={item.href}>
+              <div
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer group",
+                  isActive
+                    ? "bg-primary/10 text-primary border-l-2 border-primary pl-[10px]"
+                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-1"
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    isActive
+                      ? "text-primary"
+                      : "text-muted-foreground group-hover:text-foreground"
+                  )}
+                />
+                <span className="truncate">{item.label}</span>
+                {item.href === "/alerts" && (
+                  <span className="ml-auto h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                )}
+              </div>
+            </Link>
+          );
+        })}
+
+        <p className="text-[10px] font-bold uppercase text-muted-foreground/70 px-3 pt-4 pb-1 tracking-widest">
+          Hệ thống
+        </p>
+        {navItems.slice(7).map((item) => {
+          const isActive = location === item.href;
+          return (
+            <Link key={item.href} href={item.href}>
+              <div
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer group",
+                  isActive
+                    ? "bg-primary/10 text-primary border-l-2 border-primary pl-[10px]"
+                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-1"
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    isActive
+                      ? "text-primary"
+                      : "text-muted-foreground group-hover:text-foreground"
+                  )}
+                />
+                <span className="truncate">{item.label}</span>
               </div>
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border/50">
+      {/* System Status */}
+      <div className="p-4 border-t border-sidebar-border/50 space-y-2">
         <div className="rounded-lg bg-sidebar-accent/50 p-3 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <div>
             <p className="text-xs font-medium">Trạng thái hệ thống</p>
-            <p className="text-[10px] text-emerald-500 font-mono">HOẠT ĐỘNG</p>
+            <p className="text-[10px] text-emerald-500 font-mono">
+              ĐANG GIÁM SÁT
+            </p>
+          </div>
+        </div>
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 flex items-center gap-3">
+          <Camera className="h-4 w-4 text-blue-500" />
+          <div>
+            <p className="text-xs font-medium">Camera hoạt động</p>
+            <p className="text-[10px] text-blue-500 font-mono">
+              12/12 ONLINE
+            </p>
           </div>
         </div>
       </div>
@@ -103,7 +225,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block w-64 shrink-0 h-screen sticky top-0">
+      <div className="hidden md:block w-[270px] shrink-0 h-screen sticky top-0">
         <SidebarContent />
       </div>
 
@@ -119,31 +241,37 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </SheetTrigger>
               <SheetContent
                 side="left"
-                className="p-0 w-64 border-r border-sidebar-border bg-sidebar"
+                className="p-0 w-[270px] border-r border-sidebar-border bg-sidebar"
               >
                 <SidebarContent />
               </SheetContent>
             </Sheet>
 
-            <div className="hidden md:flex items-center relative max-w-md w-full">
+            <div className="hidden md:flex items-center relative w-full lg:w-[600px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Tìm kiếm hệ thống..."
-                className="pl-9 bg-muted/50 border-none focus-visible:ring-1 w-[300px] h-9"
+                placeholder="Tìm thông tin sinh viên, camera, sự kiện, biển số xe..."
+                className="pl-9 bg-muted/50 border-none focus-visible:ring-1 w-full h-10 text-sm shadow-inner"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Nút cảnh báo khẩn cấp */}
+
+
+
+            {/* Notification Bell */}
             <Button
               variant="ghost"
               size="icon"
               className="relative text-muted-foreground hover:text-foreground"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive border-2 border-background"></span>
+              <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-background"></span>
             </Button>
 
+            {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -153,9 +281,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <Avatar className="h-9 w-9 border border-border">
                     <AvatarImage
                       src="https://github.com/shadcn.png"
-                      alt="@shadcn"
+                      alt="Admin"
                     />
-                    <AvatarFallback>AD</AvatarFallback>
+                    <AvatarFallback>QT</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -166,13 +294,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       Quản trị viên
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      admin@secureos.com
+                      admin@truonghoc.edu.vn
                     </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Hồ sơ</DropdownMenuItem>
-                <DropdownMenuItem>Cài đặt</DropdownMenuItem>
+                <DropdownMenuItem>Hồ sơ cá nhân</DropdownMenuItem>
+                <DropdownMenuItem>Cài đặt tài khoản</DropdownMenuItem>
+                <DropdownMenuItem>Nhật ký hoạt động</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <Link href="/auth">
                   <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer">

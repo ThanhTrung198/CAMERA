@@ -32,7 +32,7 @@ const StatsCard = ({ title, value, icon: Icon, description, alert = false }: any
 );
 
 // Camera Panel Component
-const CameraPanel = ({ camIndex, camLabel, ipAddress, stats }: any) => {
+const CameraPanel = ({ camIndex, camLabel, ipAddress, stats, staticUrl }: any) => {
     const [isDrawing, setIsDrawing] = useState(false);
     const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -173,13 +173,15 @@ const CameraPanel = ({ camIndex, camLabel, ipAddress, stats }: any) => {
                     onClick={handleCanvasClick}
                 >
                     <img
-                        src={`http://localhost:5000/video_feed/${camIndex}?t=${Date.now()}`}
+                        src={staticUrl || `http://localhost:5000/video_feed/${camIndex}?t=${Date.now()}`}
                         alt={`${camLabel} Feed`}
                         className="w-full h-full object-contain"
                         onError={(e) => {
-                            setTimeout(() => {
-                                (e.target as HTMLImageElement).src = `http://localhost:5000/video_feed/${camIndex}?t=${Date.now()}`;
-                            }, 2000);
+                            if (!staticUrl) {
+                                setTimeout(() => {
+                                    (e.target as HTMLImageElement).src = `http://localhost:5000/video_feed/${camIndex}?t=${Date.now()}`;
+                                }, 2000);
+                            }
                         }}
                     />
 
@@ -252,11 +254,11 @@ export default function Tracking() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight">
-                            Tracking & Zone
+                        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                            <Target className="h-7 w-7 text-primary" /> Tracking Khu Vực & Zone
                         </h2>
-                        <p className="text-muted-foreground">
-                            Theo dõi người & phát hiện xâm nhập thời gian thực — 2 Camera
+                        <p className="text-muted-foreground mt-1">
+                            Vẽ vùng giám sát xâm nhập (Zone) & theo dõi camera thời gian thực
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -309,16 +311,21 @@ export default function Tracking() {
                 <div className="grid gap-4 lg:grid-cols-2">
                     <CameraPanel
                         camIndex={0}
-                        camLabel="CAM 1 — Webcam"
+                        camLabel="CAM 1 — Hành Lang A"
                         ipAddress={null}
                         stats={stats}
                     />
-                    <CameraPanel
-                        camIndex={0 }
-                        camLabel="CAM 2 — Webcam"
-                        ipAddress={null}
-                        stats={stats}
-                    />
+
+                    {[1, 2, 3, 4, 5].map((idx) => (
+                        <CameraPanel
+                            key={idx}
+                            camIndex={idx}
+                            camLabel={`CAM ${idx + 1} — Lớp học Demo`}
+                            ipAddress={null}
+                            stats={stats}
+                            staticUrl="https://data.ihoc.vn/ihoc-bucket/2023/10/phong-hoc-hien-dai.jpg"
+                        />
+                    ))}
                 </div>
             </div>
         </Layout>

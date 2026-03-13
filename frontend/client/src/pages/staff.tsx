@@ -58,7 +58,7 @@ const statusMap: Record<string, string> = {
   Da_Nghi: "Đã nghỉ",
 };
 
-export default function Employees() {
+export default function Staff() {
   const [employees, setEmployees] = useState([]);
   const [editingEmp, setEditingEmp] = useState<any>(null);
   const [viewingEmp, setViewingEmp] = useState<any>(null);

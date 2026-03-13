@@ -108,6 +108,9 @@ anti_spoof_state = {0: {"is_live": True, "confidence": 0.5}, 1: {"is_live": True
 ENROLLMENT_BACKUP_DIR = os.path.join(BASE_DIR, "enrollment_images")
 os.makedirs(ENROLLMENT_BACKUP_DIR, exist_ok=True)
 
+# ★ v3.1: Per-face temporal spoof accumulator
+_per_face_spoof_acc = {}
+
 
 # ==============================================================================
 # ★ FIX #5 + #12: FACE QUALITY GATE FUNCTION
@@ -205,7 +208,7 @@ def _save_enrollment_image(ma_nv, face_crop, img_index):
 # ★ FIX #17: ADAPTIVE RECOGNITION THRESHOLD
 # ==============================================================================
 class AdaptiveThresholdManager:
-    MIN_THRESHOLD = 0.40
+    MIN_THRESHOLD = 0.45
     MAX_THRESHOLD = 0.70
     HISTORY_SIZE = 50
     UPDATE_INTERVAL = 20
@@ -339,15 +342,17 @@ class FaceDatabase:
                     pass
 
     def recognize(self, target_embedding, method="hybrid"):
+        # FIX 1: Bỏ qua normalization nếu vector đã L2-normalized (norm ≈ 1.0)
         norm_target = np.linalg.norm(target_embedding)
-        if norm_target != 0:
+        if norm_target != 0 and abs(norm_target - 1.0) > 0.01:
             target_embedding = target_embedding / norm_target
         if method == "simple" or not self._person_groups:
             return self._recognize_simple(target_embedding)
 
         # ★ FIX #17: Dùng adaptive threshold
         threshold = adaptive_threshold.get_threshold()
-        MARGIN = 0.08
+        # FIX 3: Nâng MARGIN lên 0.12 để phân biệt anh em/người giống nhau
+        MARGIN = 0.12
 
         centroid_scores = {}
         for name, centroid in self._person_centroids.items():
@@ -365,7 +370,7 @@ class FaceDatabase:
             elif len(scores) == 2:
                 detailed_scores[name] = (scores[0] + scores[1]) / 2
             else:
-                k = max(2, len(scores) // 2)
+                k = min(3, len(scores))
                 detailed_scores[name] = sum(scores[:k]) / k
 
         ranked = sorted(detailed_scores.items(), key=lambda x: x[1], reverse=True)
@@ -613,7 +618,7 @@ class DepthCueAnalyzer:
             region_contrast = self._analyze_region_contrast(gray)
             total = (shadow_score * 0.25 + specular_score * 0.25 +
                      texture_density * 0.25 + region_contrast * 0.25)
-            is_real = total > 0.40
+            is_real = total > 0.45
             return is_real, total, {"shadow": shadow_score, "specular": specular_score,
                                     "texture": texture_density, "region": region_contrast, "total": total}
         except Exception as e:
@@ -627,7 +632,7 @@ class DepthCueAnalyzer:
         q4 = gray[h // 2:, w // 2:].mean()
         max_diff = max(abs(q1 - q2), abs(q1 - q3), abs(q2 - q4), abs(q3 - q4),
                        abs(q1 - q4), abs(q2 - q3))
-        return min(1.0, max_diff / 30.0)
+        return min(1.0, max_diff / 50.0)
 
     def _analyze_specular(self, gray):
         _, bright = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
@@ -734,6 +739,108 @@ class MultiLayerAntiSpoof:
         edge_mean = np.sqrt(sx ** 2 + sy ** 2).mean()
         return (min(1.0, lap_var / 500.0) + min(1.0, edge_mean / 30.0)) / 2
 
+    # ------------------------------------------------------------------
+    # PHONE FRAME DETECTOR — phát hiện khung điện thoại quanh mặt
+    # ------------------------------------------------------------------
+    def _detect_phone_frame(self, frame, face_bbox):
+        """
+        Phát hiện khung/viền điện thoại xung quanh khuôn mặt.
+        
+        Cách hoạt động:
+        1. Mở rộng vùng crop ra 60% (bao gồm cả viền điện thoại)
+        2. Canny edge detection trên vùng MỞ RỘNG (không phải face crop)
+        3. Hough Line Transform tìm đường thẳng ngang/dọc mạnh
+        4. Nếu tìm thấy >= 2 ngang + 2 dọc → khung điện thoại
+        
+        Returns: (is_phone_frame, confidence, num_h_lines, num_v_lines)
+        """
+        try:
+            h_frame, w_frame = frame.shape[:2]
+            x1, y1, x2, y2 = face_bbox
+            fw, fh = x2 - x1, y2 - y1
+            
+            # Mở rộng vùng crop 60% ra ngoài mặt
+            pad_w = int(fw * 0.6)
+            pad_h = int(fh * 0.6)
+            ex1 = max(0, x1 - pad_w)
+            ey1 = max(0, y1 - pad_h)
+            ex2 = min(w_frame, x2 + pad_w)
+            ey2 = min(h_frame, y2 + pad_h)
+            
+            expanded = frame[ey1:ey2, ex1:ex2]
+            if expanded.size == 0:
+                return False, 0.0, 0, 0
+            
+            eh, ew = expanded.shape[:2]
+            if eh < 50 or ew < 50:
+                return False, 0.0, 0, 0
+            
+            gray = cv2.cvtColor(expanded, cv2.COLOR_BGR2GRAY)
+            
+            # Tạo mask: chỉ phân tích VIỀN NGOÀI (không phải mặt)
+            # Mặt nằm ở trung tâm — mask out vùng mặt
+            face_rx1 = x1 - ex1
+            face_ry1 = y1 - ey1
+            face_rx2 = x2 - ex1
+            face_ry2 = y2 - ey1
+            
+            # Canny edge detection
+            edges = cv2.Canny(gray, 50, 150)
+            
+            # Mask out face region (chỉ giữ viền ngoài)
+            inner_pad = 5
+            edges[max(0, face_ry1-inner_pad):min(eh, face_ry2+inner_pad), 
+                  max(0, face_rx1-inner_pad):min(ew, face_rx2+inner_pad)] = 0
+            
+            # Hough Line Transform
+            min_line_len = min(ew, eh) // 3  # Line tối thiểu 1/3 chiều rộng/cao
+            lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=40, 
+                                     minLineLength=min_line_len, maxLineGap=10)
+            
+            if lines is None:
+                return False, 0.0, 0, 0
+            
+            strong_h = 0  # Horizontal lines (viền trên/dưới)
+            strong_v = 0  # Vertical lines (viền trái/phải)
+            
+            for line in lines:
+                lx1, ly1, lx2, ly2 = line[0]
+                length = ((lx2 - lx1)**2 + (ly2 - ly1)**2) ** 0.5
+                if length < min_line_len:
+                    continue
+                    
+                angle = abs(np.arctan2(ly2 - ly1, lx2 - lx1) * 180 / np.pi)
+                
+                # Horizontal (angle < 15° hoặc > 165°)
+                if angle < 15 or angle > 165:
+                    # Ở viền trên hoặc dưới (không phải giữa mặt)
+                    mid_y = (ly1 + ly2) / 2
+                    if mid_y < face_ry1 or mid_y > face_ry2:
+                        strong_h += 1
+                # Vertical (angle 75°-105°)
+                elif 75 < angle < 105:
+                    mid_x = (lx1 + lx2) / 2
+                    if mid_x < face_rx1 or mid_x > face_rx2:
+                        strong_v += 1
+            
+            # ★ Khung điện thoại PHẢI có CẢ ngang VÀ dọc
+            # H=0, V=6 là đường cơ thể/nền — KHÔNG PHẢI điện thoại
+            is_frame = (strong_h >= 2 and strong_v >= 2)
+            
+            if strong_h + strong_v > 0:
+                confidence = min(1.0, (min(strong_h, strong_v) * 2) / 6.0)
+            else:
+                confidence = 0.0
+            
+            if is_frame:
+                print(f"[PHONE_FRAME] 📱 Phát hiện khung điện thoại! "
+                      f"H={strong_h}, V={strong_v}, conf={confidence:.2f}")
+            
+            return is_frame, confidence, strong_h, strong_v
+            
+        except Exception as e:
+            return False, 0.0, 0, 0
+
     def full_check(self, frame, face_bbox, face_crop, cam_id=0, spoof_detections=None):
         results = {}
         # Layer 1: YOLO
@@ -769,25 +876,101 @@ class MultiLayerAntiSpoof:
         depth_is_real, depth_score, depth_details = depth_analyzer.analyze(face_crop)
         results["depth"] = {"is_real": depth_is_real, "score": depth_score}
 
-        # Voting: 4 layers, cần >= 2 FAKE
-        fake_votes = sum([not yolo_is_real, not tex_is_real, sd_is_screen, not depth_is_real])
+        # ★ Layer 5: Phone frame detection — phát hiện khung điện thoại
+        phone_frame = False
+        phone_conf = 0.0
+        try:
+            phone_frame, phone_conf, ph_lines, pv_lines = self._detect_phone_frame(frame, face_bbox)
+            results["phone_frame"] = {"detected": phone_frame, "conf": phone_conf,
+                                       "h_lines": ph_lines, "v_lines": pv_lines}
+        except Exception:
+            results["phone_frame"] = {"detected": False, "conf": 0.0}
 
-        if fake_votes >= 2:
+        # ★ FAST PATH: Phát hiện khung điện thoại → FAKE ngay lập tức
+        if phone_frame and phone_conf >= 0.8:
+            results["final"] = {"is_real": False, "confidence": max(phone_conf, 0.85),
+                                "weighted_ratio": 1.0, "rule": "PHONE_FRAME"}
+            return False, max(phone_conf, 0.85), results
+
+        # ★ v3.1: WEIGHTED VOTING thay vì simple count
+        fake_score = 0.0
+        total_weight = 0.0
+
+        # YOLO: trọng số cao nhất (2.5)
+        w_yolo = 2.5
+        if not yolo_is_real:
+            fake_score += w_yolo * yolo_conf
+        total_weight += w_yolo
+
+        # Texture: trọng số 1.0
+        w_tex = 1.0
+        if not tex_is_real:
+            fake_score += w_tex * (1.0 - tex_score)
+        total_weight += w_tex
+
+        # Screen: trọng số 1.5 nếu phát hiện, 0.5 nếu không
+        w_screen = 1.5 if sd_is_screen else 0.5
+        if sd_is_screen:
+            fake_score += w_screen * sd_conf
+        total_weight += w_screen
+
+        # Depth: trọng số 0.8
+        w_depth = 0.8
+        if not depth_is_real:
+            fake_score += w_depth * (1.0 - depth_score)
+        total_weight += w_depth
+
+        # ★ Phone frame: trọng số 3.0 (cao nhất — bằng chứng vật lý rõ ràng)
+        w_phone = 3.0
+        if phone_frame:
+            fake_score += w_phone * phone_conf
+        total_weight += w_phone
+
+        weighted_ratio = fake_score / max(total_weight, 0.01)
+
+        # ★ FAST PATH: YOLO high-conf → FAKE ngay
+        if not yolo_is_real and yolo_conf >= 0.60:
             is_real = False
-            confidence = max(yolo_conf, 1.0 - tex_score, sd_conf, 1.0 - depth_score)
+            confidence = yolo_conf
+            rule = "YOLO_HIGH"
+        # ★ Phone frame + YOLO → FAKE ngay (cả 2 đồng ý)
+        elif phone_frame and not yolo_is_real:
+            is_real = False
+            confidence = max(yolo_conf, phone_conf, 0.75)
+            rule = "PHONE+YOLO"
+        # ★ YOLO medium-conf + ít nhất 1 layer phụ confirm
+        elif not yolo_is_real and yolo_conf >= 0.40:
+            secondary_fake = sum([not tex_is_real, sd_is_screen, not depth_is_real, phone_frame])
+            if secondary_fake >= 1:
+                is_real = False
+                confidence = max(yolo_conf, weighted_ratio)
+                rule = "YOLO_MED+SEC"
+            else:
+                is_real = True
+                confidence = 0.5
+                rule = "YOLO_MED_ALONE"
+        # ★ Weighted ratio >= 0.50 → FAKE
+        elif weighted_ratio >= 0.50:
+            is_real = False
+            confidence = weighted_ratio
+            rule = "WEIGHTED_50"
+        # ★ Weighted + YOLO: >= 0.45 kèm YOLO không real
+        elif weighted_ratio >= 0.45 and not yolo_is_real:
+            is_real = False
+            confidence = weighted_ratio
+            rule = "GRAY+YOLO"
         else:
             is_real = True
-            confidence = (0.40 * (1.0 if yolo_is_real else 0.0) +
-                          0.20 * (1.0 if tex_is_real else 0.0) +
-                          0.20 * (0.0 if sd_is_screen else 1.0) +
-                          0.20 * (1.0 if depth_is_real else 0.0))
+            confidence = 1.0 - weighted_ratio
+            rule = "REAL"
 
-        results["final"] = {"is_real": is_real, "confidence": confidence, "fake_votes": fake_votes, "layers": 4}
+        results["final"] = {"is_real": is_real, "confidence": confidence,
+                            "weighted_ratio": round(weighted_ratio, 3), "rule": rule}
         return is_real, confidence, results
 
 
 multi_spoof = MultiLayerAntiSpoof(yolo_model=spoof_model)
-print("✅ Multi-Layer Anti-Spoof initialized! (4 layers)")
+print("✅ Multi-Layer Anti-Spoof initialized! (5 layers + phone frame detector)")
 
 
 # ==============================================================================
@@ -804,11 +987,9 @@ class TemporalIdentityStabilizer:
         self._next_id = 0
 
     def _cosine_sim(self, a, b):
-        N = 64
-        a_s, b_s = a[:N], b[:N]
-        dot = float(np.dot(a_s, b_s))
-        na = float(np.linalg.norm(a_s))
-        nb = float(np.linalg.norm(b_s))
+        dot = float(np.dot(a, b))
+        na = float(np.linalg.norm(a))
+        nb = float(np.linalg.norm(b))
         return dot / (na * nb) if na > 0 and nb > 0 else 0
 
     def _find_track(self, emb):
@@ -879,10 +1060,9 @@ class FaceTrackLinker:
         self._next_id = 0
 
     def _cos_sim(self, a, b):
-        N = 64
-        dot = float(np.dot(a[:N], b[:N]))
-        na = float(np.linalg.norm(a[:N]))
-        nb = float(np.linalg.norm(b[:N]))
+        dot = float(np.dot(a, b))
+        na = float(np.linalg.norm(a))
+        nb = float(np.linalg.norm(b))
         return dot / (na * nb) if na > 0 and nb > 0 else 0
 
     def match_and_update(self, emb, bbox):
@@ -1217,7 +1397,8 @@ _shared_face_cache = {}
 _shared_cache_lock = threading.Lock()
 
 
-def _make_cache_key(emb, n_elements=32):
+# FIX 2: Tăng n_elements lên 128 để chống đụng độ Cache Key
+def _make_cache_key(emb, n_elements=128):
     key_data = emb[:n_elements].round(4).tobytes()
     return hashlib.md5(key_data).hexdigest()
 
@@ -1233,7 +1414,8 @@ def _lookup_face_cache(emb):
     key = _make_cache_key(emb)
     now = time.time()
     with _shared_cache_lock:
-        expired = [k for k, v in _shared_face_cache.items() if now - v["time"] > 3.0]
+        # FIX 6: Tăng thời gian sống của cache từ 3.0s lên 10.0s
+        expired = [k for k, v in _shared_face_cache.items() if now - v["time"] > 10.0]
         for k in expired:
             del _shared_face_cache[k]
         if key in _shared_face_cache:
@@ -1255,7 +1437,7 @@ def _run_spoof_on_full_frame(frame, cid):
     try:
         from utils.image_utils import _spoof_model_lock
         with _spoof_model_lock:
-            results = spoof_model.predict(frame, imgsz=640, conf=0.15, verbose=False)
+            results = spoof_model.predict(frame, imgsz=640, conf=0.25, verbose=False)
         spoof_detections = []
         for result in results:
             if result.boxes is None or len(result.boxes) == 0:
@@ -1337,11 +1519,9 @@ class IdentityConfirmationBuffer:
         self._next_key = 0
 
     def _cosine_sim(self, a, b):
-        N = 64
-        a_s, b_s = a[:N], b[:N]
-        dot = float(np.dot(a_s, b_s))
-        na = float(np.linalg.norm(a_s))
-        nb = float(np.linalg.norm(b_s))
+        dot = float(np.dot(a, b))
+        na = float(np.linalg.norm(a))
+        nb = float(np.linalg.norm(b))
         return dot / (na * nb) if na > 0 and nb > 0 else 0
 
     def _find_match(self, emb):
@@ -1356,6 +1536,17 @@ class IdentityConfirmationBuffer:
     def update(self, emb, name, is_real, score, spoof_conf, cam_id):
         now = time.time()
         key = self._find_match(emb)
+
+        # ★ P0: "Đang kiểm tra..." — pass through, không confirm, không pending
+        if "kiem tra" in name.lower():
+            if key is not None and key in self.tracked:
+                state = self.tracked[key]
+                state["emb"] = emb
+                state["last_seen"] = now
+            return {"confirmed": False, "display_name": "Dang kiem tra...",
+                    "should_alert": False, "is_real": True, "score": score, "spoof_conf": spoof_conf}
+
+        # ★ P1: Người quen đã nhận diện → confirm ngay
         if name != "Unknown" and is_real and "GIA" not in name:
             if key is not None and key in self.tracked:
                 state = self.tracked[key]
@@ -1373,12 +1564,45 @@ class IdentityConfirmationBuffer:
             return {"confirmed": True, "display_name": name, "should_alert": should_alert,
                     "is_real": True, "score": score, "spoof_conf": spoof_conf}
 
+        # Xác định loại pending
         if name == "Unknown" and is_real:
             pending_type = "stranger"
             confirm_time = CONFIRMATION_TIME_STRANGER
         else:
             pending_type = "spoof"
             confirm_time = CONFIRMATION_TIME_SPOOF
+
+        # ★ P1: Nếu đã confirmed nhưng trạng thái thay đổi → RESET
+        if key is not None and key in self.tracked:
+            state = self.tracked[key]
+            if state["confirmed"]:
+                old_is_real = state.get("confirmed_is_real", True)
+                # Đã confirm là người thật nhưng giờ phát hiện FAKE → RESET
+                if old_is_real and not is_real:
+                    print(f"[BUFFER] RESET: '{state['confirmed_name']}' → spoof detected, restarting confirmation")
+                    state["confirmed"] = False
+                    state["confirmed_name"] = None
+                    state["confirmed_is_real"] = None
+                    state["pending_type"] = pending_type
+                    state["pending_start"] = now
+                    state["alert_sent"] = False
+                # Đã confirm GIA MAO nhưng giờ là REAL → RESET
+                elif not old_is_real and is_real:
+                    print(f"[BUFFER] RESET: GIA MAO → real detected, restarting confirmation")
+                    state["confirmed"] = False
+                    state["confirmed_name"] = None
+                    state["confirmed_is_real"] = None
+                    state["pending_type"] = pending_type
+                    state["pending_start"] = now
+                    state["alert_sent"] = False
+                else:
+                    # Cùng trạng thái → giữ nguyên
+                    state["emb"] = emb
+                    state["last_seen"] = now
+                    state["current_name"] = name
+                    return {"confirmed": True, "display_name": state["confirmed_name"] or name,
+                            "should_alert": not state.get("alert_sent", False),
+                            "is_real": is_real, "score": score, "spoof_conf": spoof_conf}
 
         if key is None:
             key = self._next_key
@@ -1394,10 +1618,6 @@ class IdentityConfirmationBuffer:
         state["emb"] = emb
         state["last_seen"] = now
         state["current_name"] = name
-        if state["confirmed"]:
-            return {"confirmed": True, "display_name": state["confirmed_name"] or name,
-                    "should_alert": not state.get("alert_sent", False),
-                    "is_real": is_real, "score": score, "spoof_conf": spoof_conf}
         if state["pending_type"] != pending_type:
             state["pending_type"] = pending_type
             state["pending_start"] = now
@@ -1469,10 +1689,9 @@ def _dedup_faces_by_embedding(face_results, threshold=0.85):
             emb_i = r.get("_emb")
             emb_j = face_results[j].get("_emb")
             if emb_i is not None and emb_j is not None:
-                N = 64
-                dot = float(np.dot(emb_i[:N], emb_j[:N]))
-                ni = float(np.linalg.norm(emb_i[:N]))
-                nj = float(np.linalg.norm(emb_j[:N]))
+                dot = float(np.dot(emb_i, emb_j))
+                ni = float(np.linalg.norm(emb_i))
+                nj = float(np.linalg.norm(emb_j))
                 sim = dot / (ni * nj) if ni > 0 and nj > 0 else 0
                 if sim > threshold:
                     used.add(j)
@@ -1505,6 +1724,11 @@ def ai_worker_thread():
             confirm_buffer.cleanup()
             identity_stabilizer.cleanup()
             face_track_linker.cleanup()
+            # ★ v3.1: Cleanup expired per-face spoof entries
+            _spoof_now = time.time()
+            _expired_spoof = [k for k, v in _per_face_spoof_acc.items() if _spoof_now - v["last_seen"] > 5.0]
+            for _ek in _expired_spoof:
+                del _per_face_spoof_acc[_ek]
             t_start = time.time()
 
             for cid in [0]:
@@ -1594,30 +1818,208 @@ def ai_worker_thread():
 
                             crop = frame[max(0, fy1):min(h, fy2), max(0, fx1):min(w, fx2)]
 
-                            # ★ FIX #6 + #18: Multi-layer anti-spoof (4 layers)
-                            is_real, spoof_conf, spoof_details = multi_spoof.full_check(
+                            # ════════════════════════════════════════════════
+                            # ★ P0+P2+P3: SPOOF-FIRST PIPELINE v4.0
+                            # Quy trình: KIỂM TRA GIẢ MẠO → rồi mới NHẬN DIỆN
+                            # ════════════════════════════════════════════════
+
+                            # STEP 1: Multi-layer anti-spoof (4 layers)
+                            is_real_raw, spoof_conf, spoof_details = multi_spoof.full_check(
                                 frame, fbbox, crop, cam_id=cid, spoof_detections=spoof_detections)
-                            _update_spoof_stats(cid, is_real, spoof_conf, crop)
 
-                            # ★ FIX #16: Track linking — skip recognize if same person
+                            # STEP 2: Track linking + per-face state accumulator
                             track_id, cached_result = face_track_linker.match_and_update(emb, fbbox)
+                            spoof_key = f"spoof_{track_id}"
+                            VERIFY_SECONDS = 3.0  # ★ 3 giây kiểm tra trước khi kết luận
+                            if spoof_key not in _per_face_spoof_acc:
+                                _per_face_spoof_acc[spoof_key] = {
+                                    "consecutive_fake": 0, "consecutive_real": 0,
+                                    "state": "CHECKING",  # CHECKING / FAKE / REAL
+                                    "pinned_label": None,
+                                    "pinned_score": 0.0,
+                                    "pinned_is_real": None,
+                                    "identity_votes": {},    # ★ Bỏ phiếu danh tính: {name: count}
+                                    "identity_scores": {},   # ★ Score cao nhất: {name: best_score}
+                                    "verify_start": None,    # ★ Thời điểm bắt đầu xác minh
+                                    "verify_spoof_count": 0, # ★ Số frame FAKE trong verify window
+                                    "verify_total_count": 0, # ★ Tổng frame trong verify window
+                                    "last_seen": time.time()
+                                }
+                            pacc = _per_face_spoof_acc[spoof_key]
+                            pacc["last_seen"] = time.time()
+                            old_state = pacc["state"]
 
+                            # ★ P2: Hysteresis — 3 FAKE→FAKE, 5 REAL→REAL
+                            FAKE_TO_CONFIRM = 3
+                            REAL_TO_CLEAR = 5
+                            REAL_TO_PASS = 5  # ★ 5 frame REAL liên tục mới vào REAL (cho spoof thêm thời gian)
+
+                            # ★ Confidence minimum: REAL chỉ được tính khi conf >= 0.50
+                            # Nếu is_real=True nhưng conf thấp (vd 0.26) → KHÔNG tính
+                            MIN_REAL_CONF = 0.50
+                            confident_real = is_real_raw and spoof_conf >= MIN_REAL_CONF
+
+                            if confident_real:
+                                pacc["consecutive_real"] += 1
+                                pacc["consecutive_fake"] = 0
+                            elif not is_real_raw:
+                                # Chắc chắn FAKE
+                                pacc["consecutive_fake"] += 1
+                                pacc["consecutive_real"] = 0
+                            else:
+                                # REAL nhưng conf thấp → không tính, reset chuỗi
+                                pacc["consecutive_real"] = 0
+
+                            # State machine
+                            if pacc["state"] == "CHECKING":
+                                if pacc["consecutive_fake"] >= FAKE_TO_CONFIRM:
+                                    pacc["state"] = "FAKE"
+                                elif pacc["consecutive_real"] >= REAL_TO_PASS:
+                                    pacc["state"] = "REAL"
+                                    pacc["verify_start"] = time.time()  # ★ Bắt đầu 3s verify
+                            elif pacc["state"] == "REAL":
+                                if pacc["consecutive_fake"] >= FAKE_TO_CONFIRM:
+                                    pacc["state"] = "FAKE"
+                                    pacc["pinned_label"] = None
+                                    pacc["pinned_score"] = 0.0
+                                    pacc["pinned_is_real"] = None
+                                    pacc["identity_votes"] = {}
+                                    pacc["identity_scores"] = {}
+                                    pacc["verify_start"] = None
+                            elif pacc["state"] == "FAKE":
+                                if pacc["consecutive_real"] >= REAL_TO_CLEAR:
+                                    pacc["state"] = "REAL"
+                                    pacc["pinned_label"] = None
+                                    pacc["pinned_score"] = 0.0
+                                    pacc["pinned_is_real"] = None
+                                    pacc["identity_votes"] = {}
+                                    pacc["identity_scores"] = {}
+                                    pacc["verify_start"] = time.time()
+
+                            # Console logging for state transitions
+                            if pacc["state"] != old_state:
+                                print(f"[STATE] face_id={track_id}: {old_state} → {pacc['state']} "
+                                      f"(fake_cnt={pacc['consecutive_fake']}, real_cnt={pacc['consecutive_real']}, "
+                                      f"conf={spoof_conf:.2f})")
+                            elif pacc["state"] == "CHECKING" and is_real_raw and not confident_real:
+                                print(f"[STATE] face_id={track_id}: REAL rejected (conf={spoof_conf:.2f} < {MIN_REAL_CONF})")
+
+                            # Determine is_real based on state
+                            if pacc["state"] == "FAKE":
+                                is_real = False
+                            elif pacc["state"] == "REAL":
+                                is_real = True
+                            else:
+                                is_real = None
+
+                            _update_spoof_stats(cid, is_real if is_real is not None else True, spoof_conf, crop)
+
+                            # ════════════════════════════════════════════════
+                            # STEP 3: NHẬN DIỆN + 3S VERIFY + GHIM CỜ
+                            # Logic: Spoof OK → 3s tích luỹ votes → chọn tên nhiều nhất → GHIM
+                            # ════════════════════════════════════════════════
                             name = "Unknown"
                             score = 0.0
 
-                            if cached_result is not None and cached_result.get("skipped") and is_real:
-                                name = cached_result["name"]
-                                score = cached_result["score"]
+                            # ★ Nếu đã có nhãn ghim → dùng lại ngay
+                            if pacc["pinned_label"] is not None:
+                                name = pacc["pinned_label"]
+                                score = pacc["pinned_score"]
+                                is_real_pinned = pacc["pinned_is_real"]
+                                if is_real_pinned is not None:
+                                    is_real = is_real_pinned
+
+                            elif is_real is None:
+                                # CHECKING spoof — chưa xác định
+                                name = "Dang kiem tra..."
+                                score = 0.0
+                                is_real = True
+
                             elif is_real:
-                                cached_name, cached_score = _lookup_face_cache(emb)
-                                if cached_name is not None:
-                                    name, score = cached_name, cached_score
+                                # ĐÃ XÁC NHẬN REAL → chạy recognition + tích luỹ votes
+                                rec_name = "Unknown"
+                                rec_score = 0.0
+                                if cached_result is not None and cached_result.get("skipped"):
+                                    rec_name = cached_result["name"]
+                                    rec_score = cached_result["score"]
                                 else:
-                                    name, score = db.recognize(emb, method="hybrid")
-                                    _cache_face_identity(emb, name, score)
-                                face_track_linker.update_result(track_id, name, score)
+                                    cached_name, cached_score = _lookup_face_cache(emb)
+                                    if cached_name is not None:
+                                        rec_name, rec_score = cached_name, cached_score
+                                    else:
+                                        rec_name, rec_score = db.recognize(emb, method="hybrid")
+                                        _cache_face_identity(emb, rec_name, rec_score)
+                                    face_track_linker.update_result(track_id, rec_name, rec_score)
+
+                                # ★ Tích luỹ vote: mỗi frame = 1 phiếu cho tên nhận được
+                                votes = pacc["identity_votes"]
+                                scores = pacc["identity_scores"]
+                                votes[rec_name] = votes.get(rec_name, 0) + 1
+                                if rec_score > scores.get(rec_name, 0):
+                                    scores[rec_name] = rec_score
+
+                                # ★ Track spoof trong verify window
+                                pacc["verify_total_count"] = pacc.get("verify_total_count", 0) + 1
+                                if not is_real_raw:
+                                    pacc["verify_spoof_count"] = pacc.get("verify_spoof_count", 0) + 1
+
+                                # ★ Kiểm tra đã qua 3 giây chưa?
+                                verify_start = pacc.get("verify_start")
+                                if verify_start is None:
+                                    pacc["verify_start"] = time.time()
+                                    verify_start = pacc["verify_start"]
+                                
+                                elapsed = time.time() - verify_start
+                                remaining = VERIFY_SECONDS - elapsed
+
+                                # ★ Kiểm tra: nếu >30% frame trong verify là FAKE → chưa pin
+                                spoof_ratio = pacc.get("verify_spoof_count", 0) / max(pacc.get("verify_total_count", 1), 1)
+                                if elapsed >= VERIFY_SECONDS and spoof_ratio > 0.30:
+                                    # Có quá nhiều FAKE trong verify → reset verify, chờ thêm
+                                    print(f"[VERIFY] face_id={track_id}: 3s xong nhưng FAKE={spoof_ratio:.0%} → chờ thêm")
+                                    pacc["verify_start"] = time.time()
+                                    pacc["identity_votes"] = {}
+                                    pacc["identity_scores"] = {}
+                                    pacc["verify_spoof_count"] = 0
+                                    pacc["verify_total_count"] = 0
+                                    name = "Dang kiem tra..."
+                                    score = 0.0
+                                elif elapsed >= VERIFY_SECONDS:
+                                    # ★ HẾT 3 GIÂY → chọn tên có nhiều phiếu nhất
+                                    best_name = max(votes, key=lambda k: votes[k])
+                                    best_score = scores.get(best_name, 0.0)
+                                    total_votes = sum(votes.values())
+                                    best_votes = votes[best_name]
+                                    vote_pct = best_votes / max(total_votes, 1) * 100
+
+                                    print(f"[VERIFY] face_id={track_id}: 3s xong! "
+                                          f"Kết quả: '{best_name}' ({best_votes}/{total_votes} votes, {vote_pct:.0f}%)")
+
+                                    if best_name != "Unknown":
+                                        # Người quen
+                                        name = best_name
+                                        score = best_score
+                                        pacc["pinned_label"] = name
+                                        pacc["pinned_score"] = score
+                                        pacc["pinned_is_real"] = True
+                                        print(f"[PIN] face_id={track_id}: GHIM nhãn '{name}' (score={score:.2f})")
+                                    else:
+                                        # Người lạ
+                                        stranger_id = get_stranger_identity(emb)
+                                        stranger_label = f"Nguoi_La_{stranger_id}"
+                                        name = stranger_label
+                                        score = best_score
+                                        pacc["pinned_label"] = stranger_label
+                                        pacc["pinned_score"] = score
+                                        pacc["pinned_is_real"] = True
+                                        print(f"[PIN] face_id={track_id}: GHIM nhãn '{stranger_label}'")
+                                else:
+                                    # ★ CHƯA ĐỦ 3 GIÂY → hiển thị đang kiểm tra
+                                    name = f"Dang kiem tra ({remaining:.0f}s)..."
+                                    score = 0.0
+
                             else:
-                                # ★ FIX #10: Recognize when fake
+                                # ĐÃ XÁC NHẬN FAKE → gắn nhãn GIA_MAO
                                 spoofed_name, spoofed_score = db.recognize(emb, method="hybrid")
                                 if spoofed_score >= adaptive_threshold.get_threshold():
                                     name = f"GIA_MAO_{spoofed_name}"
@@ -1626,12 +2028,14 @@ def ai_worker_thread():
                                     name = "GIA_MAO"
                                 score = spoof_conf
                                 face_track_linker.update_result(track_id, name, score)
+                                pacc["pinned_label"] = name
+                                pacc["pinned_score"] = score
+                                pacc["pinned_is_real"] = False
+                                print(f"[PIN] face_id={track_id}: GHIM nhãn '{name}'")
 
-                            # ★ FIX #13: Temporal stabilizer
-                            if is_real and name != "Unknown":
-                                name, score, is_stable = identity_stabilizer.update(emb, name, score)
-
-                            # Confirmation buffer
+                            # ════════════════════════════════════════════════
+                            # STEP 4: Confirmation buffer + Alert/Log
+                            # ════════════════════════════════════════════════
                             buf = confirm_buffer.update(emb, name, is_real, score, spoof_conf, cid)
                             if buf["confirmed"]:
                                 final_name = buf["display_name"]
@@ -1661,7 +2065,7 @@ def ai_worker_thread():
                                         alert_sent_ok = True
                                     except Exception as tg_e:
                                         print(f"[AI] Telegram stranger error: {tg_e}")
-                                elif name != "Unknown" and is_real and "GIA" not in name:
+                                elif name != "Unknown" and is_real and "GIA" not in name and "kiem tra" not in name:
                                     try:
                                         add_log(name, cid, score)
                                         alert_sent_ok = True
@@ -1769,14 +2173,14 @@ def video_feed(cam_id):
                         cv2.rectangle(ol, (x1, y1 - th - 14), (x1 + tw + 16, y1), (0, 0, 180), -1)
                         cv2.addWeighted(ol, 0.85, display, 0.15, 0, display)
                         cv2.putText(display, label, (x1 + 8, y1 - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (100, 200, 255), 2)
-                    elif "xac minh" in fname.lower():
+                    elif "xac minh" in fname.lower() or "kiem tra" in fname.lower():
                         cv2.rectangle(display, (x1, y1), (x2, y2), (0, 220, 255), 1)
                         cl = min(14, (x2 - x1) // 4, (y2 - y1) // 4)
                         for cx, cy, dx, dy in [(x1,y1,1,1),(x2,y1,-1,1),(x1,y2,1,-1),(x2,y2,-1,-1)]:
                             cv2.line(display, (cx, cy), (cx + cl * dx, cy), (0, 230, 255), 2)
                             cv2.line(display, (cx, cy), (cx, cy + cl * dy), (0, 230, 255), 2)
                         cv2.putText(display, fname, (x1 + 4, y1 - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 230, 255), 1)
-                    elif fname not in ("Unknown", "...", "Scanning...", "Dang nhan dien...") and "GIA" not in fname:
+                    elif fname not in ("Unknown", "...", "Scanning...", "Dang nhan dien...") and "GIA" not in fname and "Nguoi_La" not in fname:
                         cv2.rectangle(display, (x1, y1), (x2, y2), (255, 180, 0), 2)
                         cl = min(15, (x2 - x1) // 4, (y2 - y1) // 4)
                         for cx, cy, dx, dy in [(x1,y1,1,1),(x2,y1,-1,1),(x1,y2,1,-1),(x2,y2,-1,-1)]:
