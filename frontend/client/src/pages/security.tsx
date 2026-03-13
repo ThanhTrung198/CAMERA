@@ -196,9 +196,17 @@ export default function Security() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-             <div className="flex items-center gap-4 border-r border-border pr-6">
+              <div className="flex items-center gap-4 border-r border-border pr-6">
                 <div className="flex flex-col items-end">
-                   <span className="text-2xl font-bold text-amber-500">{alerts.length}</span>
+                   <span className="text-2xl font-bold text-red-600">
+                     {alerts.filter(a => a.location?.includes("GIA_MAO")).length}
+                   </span>
+                   <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Giả mạo</span>
+                </div>
+                <div className="flex flex-col items-end">
+                   <span className="text-2xl font-bold text-amber-500">
+                     {alerts.filter(a => !a.location?.includes("GIA_MAO")).length}
+                   </span>
                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Người lạ</span>
                 </div>
                 <div className="flex flex-col items-end">
@@ -209,7 +217,7 @@ export default function Security() {
                    <span className="text-2xl font-bold text-orange-500">{eventsTotal}</span>
                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Sự kiện quay lại</span>
                 </div>
-             </div>
+              </div>
              <Button variant="outline" size="icon" onClick={refreshAll} disabled={loading} className={loading ? "animate-spin" : ""}>
                <RefreshCw className="h-4 w-4" />
              </Button>
@@ -224,51 +232,100 @@ export default function Security() {
           </TabsList>
 
           {/* TAB 1: ALERTS & REAL-TIME */}
-          <TabsContent value="alerts" className="mt-6 space-y-6">
+          <TabsContent value="alerts" className="mt-6 space-y-10">
             
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                 <AlertTriangle className="h-5 w-5 text-amber-500" /> Phát hiện Người Lạ
-              </h3>
-            </div>
+            {/* SECTION: SPOOFING DETECTION (Cảnh báo Giả mạo) */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black flex items-center gap-2 text-red-600 dark:text-red-400">
+                   <ShieldAlert className="h-6 w-6 animate-pulse" /> Phát hiện Giả mạo (Anti-Spoofing)
+                </h3>
+                <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">Ưu tiên cao</Badge>
+              </div>
 
-            {alerts.length === 0 ? (
-               <div className="border border-dashed border-border rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground">
-                 <ShieldAlert className="h-10 w-10 mb-3 opacity-20" />
-                 <p className="font-medium">Khuôn viên an toàn</p>
-                 <p className="text-sm">Hiện không có đối tượng lạ nào xâm nhập.</p>
-               </div>
-            ) : (
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {alerts.map(item => {
-                   const isVerified = item.location === "Đã xác minh";
-                   return (
-                     <Card key={item.id} className={`overflow-hidden cursor-pointer border-t-4 transition-all hover:-translate-y-1 hover:shadow-lg ${isVerified ? 'border-t-emerald-500' : 'border-t-amber-500'}`} onClick={() => setSelectedAlert(item)}>
+              {alerts.filter(a => a.location?.includes("GIA_MAO")).length === 0 ? (
+                 <div className="bg-slate-50 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
+                    <CheckCircle className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm font-bold text-slate-500">Chưa phát hiện hành vi giả mạo nào.</p>
+                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                   {alerts.filter(a => a.location?.includes("GIA_MAO")).map(item => (
+                      <Card key={item.id} className="overflow-hidden border-2 border-red-500 shadow-lg shadow-red-500/10 transition-all hover:-translate-y-1" onClick={() => setSelectedAlert(item)}>
                         <div className="aspect-[4/3] bg-muted relative">
-                           <img src={getImageUrl(item.img)} alt="Alert" className="w-full h-full object-cover" />
-                           <Badge variant={isVerified ? "outline" : "destructive"} className={`absolute top-2 left-2 truncate max-w-[120px] ${isVerified ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : ''}`}>
-                             {isVerified ? "Đã duyệt" : item.location || "Chưa rõ"}
-                           </Badge>
-                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 flex justify-between items-end">
-                              <span className="text-white text-xs font-mono flex items-center gap-1"><Camera className="w-3 h-3" /> {item.cam}</span>
-                              <span className="text-white text-[10px]">{item.time}</span>
+                           <img src={getImageUrl(item.img)} alt="Spoof" className="w-full h-full object-cover" />
+                           <div className="absolute top-2 left-2 flex flex-col gap-1">
+                              <Badge className="bg-red-600 text-white border-none font-black animate-bounce">
+                                <AlertOctagon className="w-3 h-3 mr-1" /> GIẢ MẠO
+                              </Badge>
+                              <Badge className="bg-black/60 text-white backdrop-blur-sm border-none text-[9px]">
+                                {item.location.replace("GIA_MAO_", "")}
+                              </Badge>
+                           </div>
+                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-8 flex justify-between items-end">
+                              <span className="text-white text-[10px] font-bold flex items-center gap-1"><Camera className="w-3 h-3" /> {item.cam}</span>
+                              <span className="text-white text-[10px] font-mono">{item.time}</span>
                            </div>
                         </div>
-                        {!isVerified && (
-                           <CardContent className="p-3 bg-card flex gap-2">
-                              <Button size="sm" variant="outline" className="flex-1 text-xs h-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50" onClick={(e) => { e.stopPropagation(); handleVerifyAlert(item.id); }}>
-                                 <CheckCircle className="w-3 h-3 mr-1" /> Bỏ qua
-                              </Button>
-                              <Button size="sm" variant="destructive" className="flex-1 text-xs h-8" onClick={(e) => { e.stopPropagation(); handleAddToBlacklist(item); }}>
-                                 <UserX className="w-3 h-3 mr-1" /> Chặn
-                              </Button>
-                           </CardContent>
-                        )}
-                     </Card>
-                   )
-                 })}
-               </div>
-            )}
+                        <CardContent className="p-3 bg-red-50/50 dark:bg-red-950/10 flex gap-2">
+                           <Button size="sm" variant="destructive" className="w-full text-xs font-bold" onClick={(e) => { e.stopPropagation(); handleAddToBlacklist(item); }}>
+                              <UserX className="w-3 h-3 mr-1" /> Chặn ngay lập tức
+                           </Button>
+                        </CardContent>
+                      </Card>
+                   ))}
+                </div>
+              )}
+            </div>
+
+            <hr className="border-slate-200 dark:border-slate-800" />
+
+            {/* SECTION: STRANGER DETECTION (Người lạ) */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                   <AlertTriangle className="h-5 w-5 text-amber-500" /> Phát hiện Người Lạ
+                </h3>
+              </div>
+
+              {alerts.filter(a => !a.location?.includes("GIA_MAO")).length === 0 ? (
+                 <div className="border border-dashed border-border rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground">
+                   <ShieldAlert className="h-10 w-10 mb-3 opacity-20" />
+                   <p className="font-medium">Khuôn viên an toàn</p>
+                   <p className="text-sm">Hiện không có đối tượng lạ nào xâm nhập.</p>
+                 </div>
+              ) : (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                   {alerts.filter(a => !a.location?.includes("GIA_MAO")).map(item => {
+                     const isVerified = item.location === "Đã xác minh";
+                     return (
+                       <Card key={item.id} className={`overflow-hidden cursor-pointer border-t-4 transition-all hover:-translate-y-1 hover:shadow-lg ${isVerified ? 'border-t-emerald-500' : 'border-t-amber-500'}`} onClick={() => setSelectedAlert(item)}>
+                          <div className="aspect-[4/3] bg-muted relative">
+                             <img src={getImageUrl(item.img)} alt="Alert" className="w-full h-full object-cover" />
+                             <Badge variant={isVerified ? "outline" : "destructive"} className={`absolute top-2 left-2 truncate max-w-[120px] ${isVerified ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : ''}`}>
+                               {isVerified ? "Đã duyệt" : item.location || "Chưa rõ"}
+                             </Badge>
+                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 flex justify-between items-end">
+                                <span className="text-white text-xs font-mono flex items-center gap-1"><Camera className="w-3 h-3" /> {item.cam}</span>
+                                <span className="text-white text-[10px]">{item.time}</span>
+                             </div>
+                          </div>
+                          {!isVerified && (
+                             <CardContent className="p-3 bg-card flex gap-2">
+                                <Button size="sm" variant="outline" className="flex-1 text-xs h-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50" onClick={(e) => { e.stopPropagation(); handleVerifyAlert(item.id); }}>
+                                   <CheckCircle className="w-3 h-3 mr-1" /> Bỏ qua
+                                </Button>
+                                <Button size="sm" variant="destructive" className="flex-1 text-xs h-8" onClick={(e) => { e.stopPropagation(); handleAddToBlacklist(item); }}>
+                                   <UserX className="w-3 h-3 mr-1" /> Chặn
+                                </Button>
+                             </CardContent>
+                          )}
+                       </Card>
+                     )
+                   })}
+                 </div>
+              )}
+            </div>
             
             <hr className="border-border my-8" />
             
