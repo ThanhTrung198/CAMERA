@@ -529,19 +529,6 @@ class SmartVideoRecorder:
         
         video_path = state['video_path']
         
-        if video_path and video_path.exists():
-            # Lưu vào Database
-            success = self._save_video_to_db(video_path, cam_id, duration, intruder_ids)
-            if success:
-                print(f"[RECORDER] CAM{cam_id}: Video saved to database successfully.")
-                # Xóa file vật lý sau khi đã lưu vào DB và gửi Telegram
-                try:
-                    import os
-                    os.remove(video_path)
-                    print(f"[RECORDER] CAM{cam_id}: Physical file removed.")
-                except Exception as e:
-                    print(f"[RECORDER] CAM{cam_id}: Error removing file: {e}")
-        
         # Reset state cho camera này
         state['video_path'] = None
         state['start_time'] = None
@@ -550,40 +537,6 @@ class SmartVideoRecorder:
         state['last_intruder_exit_time'] = None
         
         return video_path
-
-    def _save_video_to_db(self, video_path, cam_id, duration, intruders):
-        """Lưu video vào MySQL database dưới dạng LONGBLOB"""
-        try:
-            import mysql.connector
-            import json
-            from datetime import datetime
-            
-            # Cấu hình DB giống database.py
-            conn = mysql.connector.connect(
-                host="localhost",
-                user="root",
-                password="",
-                database="ai_nckh",
-                port=3306
-            )
-            cursor = conn.cursor()
-            
-            with open(video_path, 'rb') as f:
-                video_data = f.read()
-            
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            sql = "INSERT INTO intrusion_videos (cam_id, thoi_gian, duration, video_data, intruders, filename) VALUES (%s, %s, %s, %s, %s, %s)"
-            val = (cam_id, now_str, float(duration), video_data, json.dumps(intruders), video_path.name)
-            
-            cursor.execute(sql, val)
-            conn.commit()
-            cursor.close()
-            conn.close()
-            return True
-        except Exception as e:
-            print(f"[RECORDER] ❌ Error saving video to DB: {e}")
-            return False
-
     
     def update(self, frame, intruding_person_ids, cam_id=0):
         """Update recording cho camera cụ thể"""

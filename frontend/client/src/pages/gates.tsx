@@ -45,7 +45,7 @@ const initialDoors: Door[] = [
     status: "OPEN",
     mode: "AUTO",
     security: "SAFE",
-    lastUser: "",
+    lastUser: "Nguyễn Thành Trung",
     openedSeconds: 42,
   },
   {
@@ -87,8 +87,8 @@ function CameraImage({ door }: { door: Door }) {
       {/* STATUS */}
       <Badge
         className={`absolute top-2 right-2 ${door.status === "OPEN"
-          ? "bg-emerald-500/90 text-white"
-          : "bg-gray-700/90 text-white"
+            ? "bg-emerald-500/90 text-white"
+            : "bg-gray-700/90 text-white"
           }`}
       >
         {door.status}

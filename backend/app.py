@@ -2600,104 +2600,58 @@ def verify_alert(alert_id):
 
 @app.route('/api/security/intrusion-events', methods=['GET'])
 def get_intrusion_events():
-    conn = None
     try:
         page = int(request.args.get('page', 1)); per_page = int(request.args.get('per_page', 12))
         date_filter = request.args.get('date', None)
-        conn = get_connection()
-        if not conn: return jsonify({"events": [], "total": 0})
-        cursor = conn.cursor(dictionary=True)
-        
-        sql = "SELECT id, cam_id, thoi_gian, duration, filename, intruders FROM intrusion_videos"
-        where_clauses = []
-        if date_filter:
-            where_clauses.append("DATE(thoi_gian) = %s")
-        
-        if where_clauses:
-            sql += " WHERE " + " AND ".join(where_clauses)
-        
-        sql += " ORDER BY thoi_gian DESC"
-        
-        if date_filter:
-            cursor.execute(sql, (date_filter,))
-        else:
-            cursor.execute(sql)
-            
-        rows = cursor.fetchall()
-        events = []
-        sdir = Path(BASE_DIR) / "intrusion_snapshots"
-        
-        for row in rows:
-            created = row['thoi_gian']
-            ms = []
-            if sdir.exists():
-                for sf in sdir.glob("*.jpg"):
-                    st2 = sf.stat(); st2t = datetime.fromtimestamp(st2.st_ctime)
-                    if abs((st2t - created).total_seconds()) < 60:
-                        ms.append({"filename": sf.name, "url": f"http://localhost:5000/api/security/snapshot/{sf.name}",
-                                   "time": st2t.strftime("%Y-%m-%d %H:%M:%S")})
-            
-            events.append({
-                "id": row['id'], 
-                "video_filename": row['filename'],
-                "video_url": f"http://localhost:5000/api/tracking/video/{row['filename']}",
-                "cam_id": row['cam_id'], 
-                "timestamp": created.strftime("%Y-%m-%d %H:%M:%S"),
-                "date": created.strftime("%Y-%m-%d"), 
-                "time": created.strftime("%H:%M:%S"),
-                "duration": row['duration'],
-                "snapshots": ms[:5], 
-                "snapshot_count": len(ms),
-                "thumbnail": ms[0]["url"] if ms else None
-            })
-            
+        rdir = Path(BASE_DIR) / "intrusion_recordings"; sdir = Path(BASE_DIR) / "intrusion_snapshots"; events = []
+        if rdir.exists():
+            for vf in sorted(rdir.glob("*.mp4"), reverse=True):
+                stat = vf.stat(); created = datetime.fromtimestamp(stat.st_ctime)
+                if date_filter:
+                    try:
+                        if created.date() != datetime.strptime(date_filter, "%Y-%m-%d").date(): continue
+                    except: pass
+                ms = []
+                if sdir.exists():
+                    for sf in sdir.glob("*.jpg"):
+                        st2 = sf.stat(); st2t = datetime.fromtimestamp(st2.st_ctime)
+                        if abs((st2t - created).total_seconds()) < 300:
+                            ms.append({"filename": sf.name, "url": f"http://localhost:5000/api/security/snapshot/{sf.name}",
+                                       "time": st2t.strftime("%Y-%m-%d %H:%M:%S")})
+                events.append({"id": len(events) + 1, "video_filename": vf.name,
+                               "video_url": f"http://localhost:5000/api/tracking/video/{vf.name}",
+                               "cam_id": vf.stem.split('_')[0], "timestamp": created.strftime("%Y-%m-%d %H:%M:%S"),
+                               "date": created.strftime("%Y-%m-%d"), "time": created.strftime("%H:%M:%S"),
+                               "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                               "snapshots": ms[:5], "snapshot_count": len(ms),
+                               "thumbnail": ms[0]["url"] if ms else None})
         total = len(events); start = (page - 1) * per_page
-        cursor.close()
         return jsonify({"events": events[start:start + per_page], "total": total, "page": page,
                         "total_pages": (total + per_page - 1) // per_page if total > 0 else 0})
     except Exception as e:
-        print(f"[IntrusionEvents] Error: {e}")
         return jsonify({"events": [], "total": 0, "error": str(e)})
-    finally:
-        if conn: conn.close()
 
 @app.route('/api/security/intrusion-events/<int:event_id>', methods=['GET'])
 def get_intrusion_event_detail(event_id):
-    conn = None
     try:
-        conn = get_connection()
-        if not conn: return jsonify({"error": "DB error"}), 500
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM intrusion_videos WHERE id = %s", (event_id,))
-        row = cursor.fetchone()
-        if not row: return jsonify({"error": "Not found"}), 404
-        
-        created = row['thoi_gian']
-        sdir = Path(BASE_DIR) / "intrusion_snapshots"
+        rdir = Path(BASE_DIR) / "intrusion_recordings"; sdir = Path(BASE_DIR) / "intrusion_snapshots"
+        videos = sorted(rdir.glob("*.mp4"), reverse=True) if rdir.exists() else []
+        if event_id < 1 or event_id > len(videos): return jsonify({"error": "Not found"}), 404
+        vf = videos[event_id - 1]; stat = vf.stat(); created = datetime.fromtimestamp(stat.st_ctime)
         snaps = []
         if sdir.exists():
             for sf in sorted(sdir.glob("*.jpg"), reverse=True):
                 st2 = sf.stat(); st2t = datetime.fromtimestamp(st2.st_ctime)
-                if abs((st2t - created).total_seconds()) < 60:
+                if abs((st2t - created).total_seconds()) < 300:
                     snaps.append({"filename": sf.name, "url": f"http://localhost:5000/api/security/snapshot/{sf.name}",
                                   "time": st2t.strftime("%Y-%m-%d %H:%M:%S")})
-        
-        res = {
-            "id": row['id'], 
-            "video_filename": row['filename'],
-            "video_url": f"http://localhost:5000/api/tracking/video/{row['filename']}",
-            "timestamp": created.strftime("%Y-%m-%d %H:%M:%S"),
-            "duration": row['duration'],
-            "cam_id": row['cam_id'],
-            "intruders": row['intruders'],
-            "snapshots": snaps
-        }
-        cursor.close()
-        return jsonify(res)
+        return jsonify({"id": event_id, "video_filename": vf.name,
+                        "video_url": f"http://localhost:5000/api/tracking/video/{vf.name}",
+                        "timestamp": created.strftime("%Y-%m-%d %H:%M:%S"),
+                        "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                        "snapshots": snaps, "snapshot_count": len(snaps)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        if conn: conn.close()
 
 @app.route('/api/security/snapshot/<filename>')
 def serve_snapshot(filename):
@@ -2762,46 +2716,23 @@ def clear_zones():
 
 @app.route('/api/tracking/recordings', methods=['GET'])
 def get_recordings():
-    conn = None
     try:
-        conn = get_connection()
-        if not conn: return jsonify({"recordings": [], "count": 0})
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, filename, thoi_gian, duration FROM intrusion_videos ORDER BY thoi_gian DESC LIMIT 100")
-        rows = cursor.fetchall()
-        recs = []
-        for r in rows:
-            recs.append({
-                "id": r['id'],
-                "filename": r['filename'],
-                "created": r['thoi_gian'].strftime("%Y-%m-%d %H:%M:%S"),
-                "duration": r['duration']
-            })
-        cursor.close()
+        rdir = Path(BASE_DIR) / "intrusion_recordings"; recs = []
+        if rdir.exists():
+            for vf in sorted(rdir.glob("*.mp4"), reverse=True)[:100]:
+                stat = vf.stat()
+                if stat.st_size < 1024: continue
+                recs.append({"filename": vf.name, "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                             "created": datetime.fromtimestamp(stat.st_ctime).strftime("%Y-%m-%d %H:%M:%S")})
         return jsonify({"recordings": recs, "count": len(recs)})
     except Exception as e:
         return jsonify({"recordings": [], "error": str(e)})
-    finally:
-        if conn: conn.close()
 
 @app.route('/api/tracking/video/<filename>')
 def stream_recording(filename):
-    conn = None
-    try:
-        conn = get_connection()
-        if not conn: return "Database connection error", 500
-        cursor = conn.cursor()
-        cursor.execute("SELECT video_data FROM intrusion_videos WHERE filename = %s", (filename,))
-        row = cursor.fetchone()
-        if not row:
-            return "Video not found", 404
-        video_data = row[0]
-        cursor.close()
-        return Response(video_data, mimetype='video/mp4')
-    except Exception as e:
-        return str(e), 500
-    finally:
-        if conn: conn.close()
+    vdir = Path(BASE_DIR) / "intrusion_recordings"; vp = vdir / filename
+    if not vp.exists(): return jsonify({"error": "Not found"}), 404
+    return send_from_directory(str(vdir), filename, mimetype='video/mp4', conditional=True)
 
 @app.route('/api/tracking/config', methods=['GET'])
 def get_tracking_config():
