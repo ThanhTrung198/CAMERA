@@ -124,7 +124,9 @@ const CameraPanel = ({ camIndex, camLabel, ipAddress, stats, staticUrl }: any) =
                         <Video className="h-5 w-5" />
                         {camLabel}
                         {ipAddress && (
-                            <Badge variant="outline" className="ml-1 text-xs">{ipAddress}</Badge>
+                            <Badge variant="outline" className="ml-1 text-xs">
+                                {ipAddress}
+                            </Badge>
                         )}
                     </CardTitle>
                     <div className="flex gap-1.5 flex-wrap">
@@ -150,7 +152,10 @@ const CameraPanel = ({ camIndex, camLabel, ipAddress, stats, staticUrl }: any) =
                                 <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => { setPoints([]); setIsDrawing(false); }}
+                                    onClick={() => {
+                                        setPoints([]);
+                                        setIsDrawing(false);
+                                    }}
                                 >
                                     Hủy
                                 </Button>
@@ -169,7 +174,8 @@ const CameraPanel = ({ camIndex, camLabel, ipAddress, stats, staticUrl }: any) =
             </CardHeader>
             <CardContent className="p-2">
                 <div
-                    className={`relative aspect-video bg-black rounded-lg overflow-hidden ${isDrawing ? "cursor-crosshair ring-2 ring-red-500" : ""}`}
+                    className={`relative aspect-video bg-black rounded-lg overflow-hidden ${isDrawing ? "cursor-crosshair ring-2 ring-red-500" : ""
+                        }`}
                     onClick={handleCanvasClick}
                 >
                     <img
@@ -231,6 +237,39 @@ export default function Tracking() {
         recording_duration: 0,
     });
 
+    const demoCameras = [
+        {
+            camIndex: 1,
+            camLabel: "CAM 2 — Cổng Trường",
+            staticUrl:
+                "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+        },
+        {
+            camIndex: 2,
+            camLabel: "CAM 3 — Sân Trường",
+            staticUrl:
+                "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=1200&q=80",
+        },
+        {
+            camIndex: 3,
+            camLabel: "CAM 4 — Hành Lang Khu B",
+            staticUrl:
+                "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=1200&q=80",
+        },
+        {
+            camIndex: 4,
+            camLabel: "CAM 5 — Lớp Học 10A1",
+            staticUrl:
+                "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1200&q=80",
+        },
+        {
+            camIndex: 5,
+            camLabel: "CAM 6 — Thư Viện",
+            staticUrl:
+                "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1200&q=80",
+        },
+    ];
+
     // Fetch stats
     useEffect(() => {
         const fetchStats = async () => {
@@ -257,9 +296,6 @@ export default function Tracking() {
                         <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                             <Target className="h-7 w-7 text-primary" /> Tracking Khu Vực & Zone
                         </h2>
-                        <p className="text-muted-foreground mt-1">
-                            Vẽ vùng giám sát xâm nhập (Zone) & theo dõi camera thời gian thực
-                        </p>
                     </div>
                     <div className="flex items-center gap-2">
                         {stats.is_recording && (
@@ -276,38 +312,38 @@ export default function Tracking() {
                 {/* Stats Cards */}
                 <div className="grid gap-4 md:grid-cols-4">
                     <StatsCard
-                        title="Đang Tracking"
+                        title="Người đang theo dõi"
                         value={stats.current_active}
                         icon={Users}
-                        description={`Tổng phát hiện: ${stats.total_unique_people}`}
+                        description={`Tổng đã phát hiện: ${stats.total_unique_people} người`}
                     />
                     <StatsCard
-                        title="Zones Đã Vẽ"
+                        title="Vùng giám sát"
                         value={stats.zones_count}
                         icon={Target}
-                        description="Vùng phát hiện xâm nhập"
+                        description="Khu vực hạn chế đã thiết lập"
                     />
                     <StatsCard
-                        title="Intrusion Events"
+                        title="Sự kiện xâm nhập"
                         value={stats.total_recordings}
                         icon={AlertTriangle}
-                        description={`${stats.total_intruders_recorded} người đã phát hiện`}
+                        description={`${stats.total_intruders_recorded} lượt xâm nhập đã ghi nhận`}
                         alert={stats.is_recording}
                     />
                     <StatsCard
-                        title="Trạng thái"
-                        value={stats.is_recording ? "RECORDING" : "Standby"}
+                        title="Trạng thái ghi hình"
+                        value={stats.is_recording ? "Đang ghi" : ""}
                         icon={Video}
                         description={
                             stats.is_recording
-                                ? `Đang ghi: ${stats.recording_duration?.toFixed(1)}s`
-                                : "Chờ xâm nhập"
+                                ? `Thời lượng: ${stats.recording_duration?.toFixed(1)}s`
+                                : "Sẵn sàng khi phát hiện xâm nhập"
                         }
                         alert={stats.is_recording}
                     />
                 </div>
 
-                {/* Dual Camera View */}
+                {/* Camera View */}
                 <div className="grid gap-4 lg:grid-cols-2">
                     <CameraPanel
                         camIndex={0}
@@ -316,14 +352,14 @@ export default function Tracking() {
                         stats={stats}
                     />
 
-                    {[1, 2, 3, 4, 5].map((idx) => (
+                    {demoCameras.map((cam) => (
                         <CameraPanel
-                            key={idx}
-                            camIndex={idx}
-                            camLabel={`CAM ${idx + 1} — Lớp học Demo`}
+                            key={cam.camIndex}
+                            camIndex={cam.camIndex}
+                            camLabel={cam.camLabel}
                             ipAddress={null}
                             stats={stats}
-                            staticUrl="https://data.ihoc.vn/ihoc-bucket/2023/10/phong-hoc-hien-dai.jpg"
+                            staticUrl={cam.staticUrl}
                         />
                     ))}
                 </div>

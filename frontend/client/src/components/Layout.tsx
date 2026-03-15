@@ -41,17 +41,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Tổng quan", href: "/dashboard" },
-    {
-      icon: GraduationCap,
-      label: "Quản lý học sinh",
-      href: "/students",
-    },
-
-    {
-      icon: UserCheck,
-      label: "Điểm danh ra vào",
-      href: "/attendance",
-    },
 
     {
       icon: DoorOpen,
@@ -70,11 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       href: "/security",
     },
 
-    {
-      icon: BarChart3,
-      label: "Báo cáo & Thống kê",
-      href: "/reports",
-    },
+
 
     {
       icon: Users,
